@@ -2,14 +2,17 @@ package dev.codewithsam.payments;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
+import java.util.Optional;
 
 @ApplicationScoped
 public class PaymentService {
 
     private final PaymentRepository repository;
+    private final FeeCalculator fees;
 
-    public PaymentService(PaymentRepository repository) {
+    public PaymentService(PaymentRepository repository, FeeCalculator fees) {
         this.repository = repository;
+        this.fees = fees;
     }
 
     // The Spring service, translated line for line. No transaction anywhere.
@@ -29,5 +32,10 @@ public class PaymentService {
 
     public long count() {
         return repository.count();
+    }
+
+    public Optional<PaymentView> find(Long id) {
+        return repository.findByIdOptional(id).map(p -> new PaymentView(
+            p.id, p.amountInMinorUnits, p.currency, fees.feeFor(p.amountInMinorUnits)));
     }
 }

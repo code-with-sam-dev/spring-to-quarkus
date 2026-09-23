@@ -25,4 +25,12 @@ public class Payment {
     public Long getId() {
         return id;
     }
+
+    public long getAmountInMinorUnits() {
+        return amountInMinorUnits;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
 }
