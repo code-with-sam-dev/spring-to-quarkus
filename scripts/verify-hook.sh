@@ -47,7 +47,30 @@ expect Spring "$S" present
 expect Quarkus "$Q" absent
 
 echo
-echo "=== What Quarkus said about the runtime value ==="
-grep -i "build time\|build-time\|fraud-check" /tmp/quarkus-hook.log || echo "(nothing)"
+echo "=== What Quarkus said about YOUR property, with the mismatch check set to fail ==="
+kill $QP 2>/dev/null; wait $QP 2>/dev/null || true
+"$JAVA" -Dquarkus.http.port=8082 -Dpayments.fraud-check.enabled=true \
+  -Dquarkus.config.build-time-mismatch-at-runtime=fail \
+  -jar quarkus-payments/target/quarkus-app/quarkus-run.jar >/tmp/quarkus-own.log 2>&1 &
+QP=$!
+Q2=$(ask 8082)
+echo "Quarkus  GET /fraud-check  $Q2"
+expect "Quarkus with fail" "$Q2" absent
+if grep -qi "build time property" /tmp/quarkus-own.log; then
+  echo "CLAIM FAILED: expected no warning about payments.fraud-check.enabled" >&2; exit 1
+fi
+echo "  started, no warning, bean still absent"
+
 echo
-echo "hook verified: same property, same override, Spring built the bean and Quarkus did not"
+echo "=== And about ITS OWN build-time setting ==="
+kill $QP 2>/dev/null; wait $QP 2>/dev/null || true
+"$JAVA" -Dquarkus.http.port=8082 -Dquarkus.application.name=renamed \
+  -jar quarkus-payments/target/quarkus-app/quarkus-run.jar >/tmp/quarkus-theirs.log 2>&1 &
+QP=$!
+ask 8082 >/dev/null
+W=$(grep -A1 "Build time property cannot be changed at runtime" /tmp/quarkus-theirs.log || true)
+if [ -z "$W" ]; then echo "CLAIM FAILED: expected a warning for quarkus.application.name" >&2; exit 1; fi
+echo "$W" | sed 's/^.*WARN/  WARN/'
+
+echo
+echo "hook verified: Spring built the bean, Quarkus did not, and Quarkus warns about its settings, not yours"
