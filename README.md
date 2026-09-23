@@ -19,3 +19,18 @@ Quarkus decides `@IfBuildProperty` during the build, and the runtime value has
 no effect on which beans exist. The Quarkus startup log says nothing about it.
 
 Verified on 2026-09-23, Java 25.0.4.
+
+## The second finding: who owns the transaction
+
+    docker compose up -d        # Postgres on 5435
+    (cd spring-payments && ./mvnw test)
+    (cd quarkus-payments && ./mvnw test)
+
+`PaymentService.record` has no `@Transactional` in Spring, and Spring Data's
+`save()` writes the row anyway, because it opens its own transaction. The same
+method translated line for line to Panache's `persist()` throws:
+
+    jakarta.persistence.TransactionRequiredException: Transaction is not active,
+    consider adding @Transactional to your method to automatically activate one.
+
+Add `@Transactional` and the row is written.
